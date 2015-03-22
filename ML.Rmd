@@ -1,0 +1,97 @@
+---
+output: html_document
+---
+#
+
+This document describe the analysis done for the prediction assignment of the practical machine learning course.
+
+##Loading the required libraries. Loading caret for its confusion matrix and e1071 for its libsvm
+```{r}
+library(caret)
+library(e1071)
+```
+
+##Loading the data
+The first step is to load the csv file data to dataframe and analyze the type & the completion rate of the data. The test data is also loaded here to process both the training and testing data simultaneously.
+```{r}
+data <- read.csv("./Documents/pml-training1.csv")
+test_data <- read.csv("pml-testing.csv")
+```
+
+##Studying the data
+As with all data mining process, we would have to study the data first.
+```{r}
+head(data)
+summary(data)
+```
+
+The analysis allows us to note two main points : 1 - Some numeric data have been imported as factor because of the presence of some characters ("#DIV/0!") 2 - Some columns have a a lot of missing data/N.A
+
+```{r}
+for(i in c(8:ncol(data)-1)) 
+{
+  data[,i] = as.numeric(as.character(data[,i]))
+  test_data[,i] = as.numeric(as.character(test_data[,i]))
+  
+}
+
+```
+
+#Feature selection
+
+We will only select features that do not contain any NA values as well as removing useless features such as "X"", timestamps, "new_window" and "num_window". User name is also removed as it should be independent of the class value. Since if the columns has N.A, all the cells in that column would either show blank or N.A
+
+Removing the columns with NA values and unnecessary features
+```{r}
+cleanedData <- data[colSums(is.na(data)) == 0]
+cleanedtestData <- test_data[colSums(is.na(test_data)) == 0]
+cleanedData<- cleanedData[-(1:7)]
+cleanedtestData<- cleanedtestData[-(1:7)]
+```
+
+##Final Dataframe
+We have now a dataframe which contains all the remaining correct features. So the first step is to split the dataset in two part : the first for training and the second for testing. Note that this testing is only for the evaluation of the model and hence, it has a class label.
+
+```{r}
+pData <- createDataPartition(y=cleanedData$classe, p=0.8, list=FALSE )
+training <- cleanedData[pData,]
+testing <- cleanedData[-pData,]
+```
+
+##Model Building
+We can now train a classifier with the training data
+
+I decided to use SVM as a classifier to explore the effects of SVM on this dataset. E1071 is a good SVM package. A model is built using the classe as the class label and all the other features as training set. A number of features were removed in the data pre processing step
+
+```{r}
+model <- svm(training$classe ~., data = training)
+pred<- predict(model, testing)
+table(pred)
+confusionMatrix(pred, testing$classe)
+```
+
+SVM is unable to show a model visualization as there is too many features.
+
+##To predict the actual labels
+```{r}
+predResult <- predict(model, cleanedtestData, type = "class")
+```
+
+##Preparing the function to write to file
+
+This is the function to write to file for submission. Modified from the one provided
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+```
+
+##Output the test results to the files
+This function will output the 20 cases
+```{r}
+pml_write_files(predResult)
+```
